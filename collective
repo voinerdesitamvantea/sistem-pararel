@@ -1,0 +1,66 @@
+#include <stdio.h>
+#include <mpi.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define DIM1 2
+#define DIM2 2
+#define DIM3 2
+
+int main(int argc, char * argv[]) {
+    MPI_Init(&argc, &argv);
+    int myRank, numProcesses;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
+
+    int threeDimensionalArray[DIM1][DIM2][DIM3];
+    int sendBuffer[DIM1 * DIM2 * DIM3];
+    int receivedBuffer[DIM1 * DIM2 * DIM3];
+
+    if (myRank == 0) {
+        int index = 0;
+        srand(time(NULL));
+        for (int i = 0; i < DIM1; ++i) {
+            for (int j = 0; j < DIM2; ++j) {
+                for (int k = 0; k < DIM3; ++k) {
+                    threeDimensionalArray[i][j][k] = rand() % 100 + 1;
+                    sendBuffer[index++] = threeDimensionalArray[i][j][k];
+                }
+            }
+        }
+
+        MPI_Scatter(sendBuffer, DIM1 * DIM2 * DIM3 / numProcesses, MPI_INT, receivedBuffer, DIM1 * DIM2 * DIM3 / numProcesses, MPI_INT, 0, MPI_COMM_WORLD);
+
+    } else {
+        int localBuffer[DIM1 * DIM2 * DIM3];
+        srand(time(NULL) + myRank);
+        for (int i = 0; i < DIM1 * DIM2 * DIM3 / numProcesses; ++i) {
+            localBuffer[i] = rand() % 100 + 1;
+        }
+
+        MPI_Scatter(sendBuffer, DIM1 * DIM2 * DIM3 / numProcesses, MPI_INT, receivedBuffer, DIM1 * DIM2 * DIM3 / numProcesses, MPI_INT, 0, MPI_COMM_WORLD);
+
+        printf("Process rank %d received the flattened array:\n", myRank);
+        for (int i = 0; i < DIM1 * DIM2 * DIM3 / numProcesses; ++i) {
+            printf("%d ", receivedBuffer[i]);
+        }
+        printf("\n");
+    }
+
+    MPI_Gather(receivedBuffer, DIM1 * DIM2 * DIM3 / numProcesses, MPI_INT, threeDimensionalArray, DIM1 * DIM2 * DIM3 / numProcesses, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (myRank == 0) {
+        printf("Process rank %d received the following data:\n", myRank);
+        for (int i = 0; i < DIM1; ++i) {
+            for (int j = 0; j < DIM2; ++j) {
+                for (int k = 0; k < DIM3; ++k) {
+                    printf("%d ", threeDimensionalArray[i][j][k]);
+                }
+            }
+        }
+        printf("\n");
+    }
+
+    MPI_Finalize();
+    return 0;
+}
